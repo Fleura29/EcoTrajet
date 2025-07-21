@@ -2,14 +2,10 @@
 
 ## Lien vers le site web
 
-http://192.168.75.28/
+VM inactive
 
 Pour tester l’API du backend, un environnement de tests GraphiQL est disponible à l’adresse
-suivante : https://myselfleo.com/mif10/graphiql
-
-## Wiki
-
-Le wiki est accessible à l'adresse suivante: https://forge.univ-lyon1.fr/mif10_g14_2025/projet-transversal/-/wikis/home
+suivante : VM inactive
 
 ## Dépendances & Compilation
 
