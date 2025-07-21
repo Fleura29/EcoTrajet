@@ -1,0 +1,134 @@
+# Cache downloaded dependencies and plugins between builds.
+# Not strictly necessary, but speeds up the builds.
+cache:
+  key: "$CI_JOB_NAME"
+  paths:
+    # Must be within the repository under test hence we can't use the
+    # default ~/.m2
+    - .m2/repository
+variables:
+  # Use the cached directory above.
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+
+
+stages:
+  - build
+  - test
+  - sonarqube-check
+  - sonarqube-vulnerability-report
+  - deploy
+
+
+before_script:
+  - chmod +x ./ci/setup-mvn-proxy.sh
+  - ./ci/setup-mvn-proxy.sh
+
+  # coreConfig.yml est défini dans la variable Gitlab CI/CD CORE_CONFIG
+  - 'cp ${CORE_CONFIG} coreConfig.yml'
+
+build-backend:
+  image: maven:3.9.9-eclipse-temurin-23-alpine
+
+  only:
+    - main
+    - merge_requests
+    - backend
+  stage: build
+  script:
+    # Créé le fichier de configuration du moteur de routage
+    - 'echo "cacheFolder: /opt/mfi10/cache" >> src/main/resources/coreConfig.yml'
+    - mvn -DskipTests clean package
+  artifacts:
+    paths:
+      - target/backend_g14_mif10.war
+
+
+build-frontend:
+  image: node:latest
+  only:
+    - main
+    - merge_requests
+    - frontend
+  stage: build
+  script:
+    - cd frontend
+    - npm install
+    - npm run build
+    - cd ..
+  artifacts:
+    paths:
+      - frontend/dist/*
+
+
+sonarqube-check:
+  stage: sonarqube-check
+  image: maven:3-eclipse-temurin-23
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    # Créé le fichier de configuration du moteur de routage
+    - 'echo "cacheFolder: /opt/mfi10/cache" >> src/main/resources/coreConfig.yml'
+    - mvn verify sonar:sonar
+  allow_failure: true
+  only:
+    - merge_requests
+    - master
+    - main
+    - develop
+    - frontend
+    - backend
+
+sonarqube-vulnerability-report:
+  stage: sonarqube-vulnerability-report
+  script:
+    - 'curl -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/issues/gitlab_sast_export?projectKey=mif10_g14_2025_projet-transversal_AZXc1ef-Re7mU3_qr5Qb&branch=${CI_COMMIT_BRANCH}&pullRequest=${CI_MERGE_REQUEST_IID}" -o gl-sast-sonar-report.json'
+  allow_failure: true
+  only:
+    - merge_requests
+    - master
+    - main
+    - develop
+    - frontend
+    - backend
+  artifacts:
+    expire_in: 1 day
+    reports:
+      sast: gl-sast-sonar-report.json
+  dependencies:
+    - sonarqube-check
+
+
+# Upload les fichiers vers la VM
+# Il faut upload le WAR, coreConfig.yml, et tout ce qui relève du frontend
+upload-backend:
+  image: maven:3.9.9-eclipse-temurin-23-alpine
+  stage: deploy
+  only:
+    - main
+    - backend
+  dependencies:
+    - build-backend
+  script:
+    - echo "Déployement BACKEND"
+    # On ne peut pas déployer depuis la Forge,
+    # le déployement se fait côté VM en faisant un git pull régulier
+    # - chmod 400 $VM_CONTABO_CI_SSH_KEY
+    # - scp -o StrictHostKeyChecking=no -i $VM_CONTABO_CI_SSH_KEY target/backend_g14_mif10.war mif10_gitlabci@myselfleo.com:/opt/tomcat/webapps/mif10.war
+
+upload-frontend:
+  image: node:latest
+  stage: deploy
+  only:
+    - main
+    - frontend
+  dependencies:
+    - build-frontend
+  script:
+    - chmod 400 $VM_FAC_CI_SSH_KEY
+    - scp -r -o StrictHostKeyChecking=no -i $VM_FAC_CI_SSH_KEY frontend/dist/* gitlabci@192.168.75.28:/usr/share/nginx/mif10/dist

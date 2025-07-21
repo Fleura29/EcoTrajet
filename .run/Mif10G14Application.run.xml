@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Mif10G14Application" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+    <module name="mif10_g14" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.mif10_g14_2024.mif10_g14.Mif10G14Application" />
+    <option name="VM_PARAMETERS" value="-Xmx6000m" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

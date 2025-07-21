@@ -1,0 +1,106 @@
+scalar Date
+
+### Vehicles ###
+
+### ROUTAGE ###
+
+type GHPoint {
+    lat: Float!
+    lon: Float!
+}
+
+type PointList {
+    lats: [Float!]!
+    lons: [Float!]!
+}
+
+type Itinerary {
+    id: ID!
+    user: User            # User who requested the itinerary (optional)
+    date: Date!           # Date when the itinerary was effected
+    transportId: String!    # ID of the transport used for this itinerary
+    source: String!       # Start point of the itinerary, human-readable
+    target: String!       # End point of the itinerary, human-readable
+    distance: Float!      # In kilometers
+    emissions: Float!     # Estimated CO2 emissions in kg
+    time: Float!          # Time in seconds
+    ascend: Float!        # Elevation in meters
+    points: PointList!    # Points (lat, lon) of the path
+}
+
+# Isodapsy: "Iso" (same) + "Dapsileia" (consumption)
+type Isodapsy {
+    id: ID!
+    user: User            # User who requested the isodapsy (optional)
+    date: Date!           # Date when the isodapsy was computed
+    transportId: String!    # ID of the transport used for this isodapsy
+    source: String!       # Start point of the isodapsy, human-readable
+    points: PointList!    # Vertices (lat, lon) of the geo-polygon
+}
+
+
+input ComputeItineraryDto {
+    sourceText: String!, # Ex: "31 Avenue Coubertin, 69100 Villeurbanne"
+    targetText: String!, # Ex: "26 Rue de la République, 69002 Lyon"
+    sourceLat: Float!,   # Ex: 45.782033425788555
+    sourceLon: Float!,   # Ex: 4.864788457934365
+    targetLat: Float!,   # Ex: 45.76288435058486
+    targetLon: Float!,   # Ex: 4.835756465643321
+    vehicleType: String! # Ex: "car", "pedestrian", "bicycle"
+    userID: ID,
+}
+
+input ComputeIsodapsyDto {
+    sourceText: String!, # Ex: "31 Avenue Coubertin, 69100 Villeurbanne"
+    sourceLat: Float!,   # Ex: 45.782033425788555
+    sourceLon: Float!,   # Ex: 4.864788457934365
+    vehicleType: String! # Ex: "car", "pedestrian", "bicycle"
+    budget: Float!       # Amount of CO2 to be used. In kg. Ex: 34.4
+    userID: ID,
+}
+
+### UTILISATEURS ###
+
+enum UserType {
+    UTILISATEUR
+    ADMIN
+}
+
+type User {
+    id: ID!
+    login: String!
+    type: UserType!
+    itineraries: [Itinerary]!
+}
+
+input CreateUserDto {
+    type: UserType!
+    login: String!
+    password: String!
+}
+
+input LoginDto {
+    login: String!
+    password: String!
+}
+
+
+type Query {
+    # Request a routing calculation
+    computeItinerary(input: ComputeItineraryDto!): Itinerary
+    computeIsodapsy(input: ComputeIsodapsyDto!): Isodapsy
+
+    # User
+    getUser: User                       # Requires User to be connected (Jwt)
+    getItinerary(id: ID!): Itinerary
+    # To get a User itineraries, use getUserById(userId) { itineraries }
+}
+
+type Mutation {
+    # Create a User
+    createUser(input: CreateUserDto!): User
+    # saveItinerary(id: ID!): Itinerary
+
+    # Login
+    login(input: LoginDto!): String # Returns session token
+}
